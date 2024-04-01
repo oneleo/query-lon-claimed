@@ -1,5 +1,5 @@
+import { Address, BigInt, ethereum } from "@graphprotocol/graph-ts"
 import { newMockEvent } from "matchstick-as"
-import { ethereum, Address, BigInt } from "@graphprotocol/graph-ts"
 import {
   Claimed,
   OwnerChanged,
