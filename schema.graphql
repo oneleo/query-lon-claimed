@@ -7,24 +7,6 @@ enum MethodName {
   unknown
 }
 
-# Claimed entity stores recipient and balance data per Claimed event,
-# with 'periods' and 'balancePerPeriod' stored in arrays,
-# using u64.MAX_VALUE if a period is unknown.
-type Claimed @entity(immutable: true) {
-  id: Bytes!
-  from: Bytes! # address
-  recipient: Bytes! # address
-  balance: BigInt! # uint256
-  balancePerPeriod: [BigInt!]! # uint256[]
-  periods: [BigInt!]! # uint256[]
-  periodsLength: BigInt! # uint256
-  blockNumber: BigInt!
-  blockTimestamp: BigInt!
-  transactionHash: Bytes!
-  transactionMethodId: Bytes!
-  transactionMethodName: MethodName!
-}
-
 # ClaimedPerPeriod entity stores recipient and balance data
 # per period and recipient address.
 type ClaimedPerPeriod @entity(immutable: true) {
@@ -49,15 +31,6 @@ type TotalClaimed @entity(immutable: false) {
   totalBalance: BigInt! # uint256
 }
 
-# TotalClaimedPerFrom entity stores claimed period count
-# and total balance per 'from' address.
-type TotalClaimedPerFrom @entity(immutable: false) {
-  id: Bytes! # equals the from
-  from: Bytes! # address
-  countPeriod: BigInt! # uint256
-  totalBalance: BigInt! # uint256
-}
-
 # TotalClaimedPerRecipient entity stores claimed period count
 # and total balance per 'recipient' address.
 type TotalClaimedPerRecipient @entity(immutable: false) {
@@ -65,21 +38,4 @@ type TotalClaimedPerRecipient @entity(immutable: false) {
   recipient: Bytes! # address
   countPeriod: BigInt! # uint256
   totalBalance: BigInt! # uint256
-}
-
-type OwnerChanged @entity(immutable: true) {
-  id: Bytes!
-  oldOwner: Bytes! # address
-  newOwner: Bytes! # address
-  blockNumber: BigInt!
-  blockTimestamp: BigInt!
-  transactionHash: Bytes!
-}
-
-type OwnerNominated @entity(immutable: true) {
-  id: Bytes!
-  newOwner: Bytes! # address
-  blockNumber: BigInt!
-  blockTimestamp: BigInt!
-  transactionHash: Bytes!
 }

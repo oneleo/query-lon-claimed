@@ -17,16 +17,10 @@ dataSources:
       language: wasm/assemblyscript
       entities:
         - Claimed
-        - OwnerChanged
-        - OwnerNominated
       abis:
         - name: MerkleRedeem
           file: ./abis/MerkleRedeem.json
       eventHandlers:
         - event: Claimed(indexed address,uint256)
           handler: handleClaimed
-        - event: OwnerChanged(indexed address,indexed address)
-          handler: handleOwnerChanged
-        - event: OwnerNominated(indexed address)
-          handler: handleOwnerNominated
       file: ./src/merkle-redeem.ts

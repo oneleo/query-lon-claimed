@@ -5,18 +5,10 @@ import {
   ethereum,
   log
 } from "@graphprotocol/graph-ts"
+import { Claimed as ClaimedEvent } from "../generated/MerkleRedeem/MerkleRedeem"
 import {
-  Claimed as ClaimedEvent,
-  OwnerChanged as OwnerChangedEvent,
-  OwnerNominated as OwnerNominatedEvent
-} from "../generated/MerkleRedeem/MerkleRedeem"
-import {
-  Claimed as ClaimedEntity,
   ClaimedPerPeriod as ClaimedPerPeriodEntity,
-  OwnerChanged as OwnerChangedEntity,
-  OwnerNominated as OwnerNominatedEntity,
   TotalClaimed as TotalClaimedEntity,
-  TotalClaimedPerFrom as TotalClaimedPerFromEntity,
   TotalClaimedPerRecipient as TotalClaimedPerRecipientEntity
 } from "../generated/schema"
 
@@ -124,25 +116,6 @@ export function handleClaimed(event: ClaimedEvent): void {
   const method = getMethod(methodId)
   const methodName = getMethodName(methodId)
 
-  // -----------------------------
-  // --- Create Claimed entity ---
-  // -----------------------------
-
-  // Claimed entity stores recipient and balance data per Claimed event,
-  // with 'periods' and 'balancePerPeriod' stored in arrays,
-  // using u64.MAX_VALUE if a period is unknown.
-  const claimedEntity = new ClaimedEntity(id)
-  claimedEntity.from = from
-  claimedEntity.recipient = recipient
-  claimedEntity.balance = balance
-  claimedEntity.blockNumber = blockNumber
-  claimedEntity.blockTimestamp = timestamp
-  claimedEntity.transactionHash = transactionHash
-  claimedEntity.transactionMethodId = methodId
-  claimedEntity.transactionMethodName = methodName
-  claimedEntity.periods = []
-  claimedEntity.balancePerPeriod = []
-
   // As the AssemblyScript compiler struggles with null values in arrays, non-null arrays are employed here, with BigInt.fromU64(u64.MAX_VALUE) serving to signify the absence of a period.
   const periods: Array<BigInt> = [] // Array<BigInt | null> = []
   const balances: Array<BigInt> = []
@@ -178,14 +151,12 @@ export function handleClaimed(event: ClaimedEvent): void {
       break
     }
     case Method.execute: {
-      claimedEntity.transactionMethodName = MethodName.execute
       // Employing u64.MAX_VALUE as the unknown period value.
       periods.push(BigInt.fromU64(u64.MAX_VALUE))
       balances.push(balance)
       break
     }
     default: {
-      claimedEntity.transactionMethodName = MethodName.unknown
       // Employing u64.MAX_VALUE as the unknown period value.
       periods.push(BigInt.fromU64(u64.MAX_VALUE))
       balances.push(balance)
@@ -193,13 +164,6 @@ export function handleClaimed(event: ClaimedEvent): void {
     }
   }
   const periodsLength = periods.length
-
-  claimedEntity.periodsLength = BigInt.fromI32(periodsLength)
-  claimedEntity.periods = periods
-  claimedEntity.balancePerPeriod = balances
-
-  // Save the entity to the store
-  claimedEntity.save()
 
   // ----------------------------------
   // --- Update TotalClaimed entity ---
@@ -225,27 +189,6 @@ export function handleClaimed(event: ClaimedEvent): void {
 
   // Save the entity to the store
   totalClaimedEntity.save()
-
-  // -----------------------------------------
-  // --- Update TotalClaimedPerFrom entity ---
-  // -----------------------------------------
-
-  // TotalClaimedPerFrom entity stores claimed period count
-  // and total balance per 'from' address.
-  let totalClaimedPerFromEntity = TotalClaimedPerFromEntity.load(from)
-  if (totalClaimedPerFromEntity == null) {
-    totalClaimedPerFromEntity = new TotalClaimedPerFromEntity(from)
-    totalClaimedPerFromEntity.from = from
-    totalClaimedPerFromEntity.countPeriod = zero
-    totalClaimedPerFromEntity.totalBalance = zero
-  }
-  totalClaimedPerFromEntity.totalBalance =
-    totalClaimedPerFromEntity.totalBalance.plus(balance)
-  totalClaimedPerFromEntity.countPeriod =
-    totalClaimedPerFromEntity.countPeriod.plus(BigInt.fromI32(periodsLength))
-
-  // Save the entity to the store
-  totalClaimedPerFromEntity.save()
 
   // ----------------------------------------------
   // --- Update TotalClaimedPerRecipient entity ---
@@ -318,41 +261,4 @@ export function handleClaimed(event: ClaimedEvent): void {
       balances.toString()
     ]
   )
-}
-
-export function handleOwnerChanged(event: OwnerChangedEvent): void {
-  const id = getEventId(event)
-
-  let entity = new OwnerChangedEntity(id)
-  entity.oldOwner = event.params.oldOwner
-  entity.newOwner = event.params.newOwner
-
-  entity.blockNumber = event.block.number
-  entity.blockTimestamp = event.block.timestamp
-  entity.transactionHash = event.transaction.hash
-
-  log.info("[log] OwnerChanged event transaction hash: {}", [
-    entity.transactionHash.toHexString()
-  ])
-
-  // Save the entity to the store
-  entity.save()
-}
-
-export function handleOwnerNominated(event: OwnerNominatedEvent): void {
-  const id = getEventId(event)
-
-  let entity = new OwnerNominatedEntity(id)
-  entity.newOwner = event.params.newOwner
-
-  entity.blockNumber = event.block.number
-  entity.blockTimestamp = event.block.timestamp
-  entity.transactionHash = event.transaction.hash
-
-  log.info("[log] OwnerNominated event transaction hash: {}", [
-    entity.transactionHash.toHexString()
-  ])
-
-  // Save the entity to the store
-  entity.save()
 }
