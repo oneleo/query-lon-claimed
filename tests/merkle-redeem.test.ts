@@ -250,7 +250,7 @@ describe("Describe entity assertions", () => {
   )
 
   test(
-    "Test Claimed entity data on execute() and other transactions",
+    "Test Claimed entity data on execute()",
     () => {
       // Simulate execute() transaction
       const newExecuteEvent = CustomEvents.createExecuteEvent()
@@ -261,6 +261,56 @@ describe("Describe entity assertions", () => {
       const idString = id.toHexString()
       const recipient = Address.fromHexString(
         "0x3021B1A8bB7d73d0afaA3537040EfAb630dB2958"
+      ).toHexString()
+      const balance = BigInt.fromString("1000000000000000000000")
+      const balancePerPeriod = [balance]
+      // Employing u64.MAX_VALUE as the unknown period value
+      const periods = [u64.MAX_VALUE].map<BigInt>((num) => BigInt.fromU64(num))
+      const periodsLength = periods.length
+
+      // Validate entity count
+      assert.entityCount("Claimed", 1)
+
+      // Validate recipient
+      assert.fieldEquals("Claimed", idString, "recipient", recipient)
+
+      // Validate balance
+      assert.fieldEquals("Claimed", idString, "balance", balance.toString())
+
+      // Validate balancePerPeriod
+      assert.fieldEquals(
+        "Claimed",
+        idString,
+        "balancePerPeriod",
+        arrayToString(balancePerPeriod)
+      )
+
+      // Validate periods
+      assert.fieldEquals("Claimed", idString, "periods", arrayToString(periods))
+
+      // Validate periodsLength
+      assert.fieldEquals(
+        "Claimed",
+        idString,
+        "periodsLength",
+        periodsLength.toString()
+      )
+    },
+    false // Expected success
+  )
+
+  test(
+    "Test Claimed entity data on unknown function",
+    () => {
+      // Simulate unknown function transaction
+      const newUnknownEvent = CustomEvents.createUnknownEvent_0xa2d41b9e()
+      handleClaimed(newUnknownEvent)
+
+      // Configure claimPeriod() transaction parameters
+      const id = getEventId(newUnknownEvent)
+      const idString = id.toHexString()
+      const recipient = Address.fromHexString(
+        "0x718811e2d1170db844d0c5de6D276b299f2916a9"
       ).toHexString()
       const balance = BigInt.fromString("1000000000000000000000")
       const balancePerPeriod = [balance]
@@ -480,7 +530,7 @@ describe("Describe entity assertions", () => {
   )
 
   test(
-    "Test ClaimedPerPeriod entity data on execute() and other transactions",
+    "Test ClaimedPerPeriod entity data on execute()",
     () => {
       // Simulate execute() transaction
       const newExecuteEvent = CustomEvents.createExecuteEvent()
@@ -490,6 +540,56 @@ describe("Describe entity assertions", () => {
       const id = getEventId(newExecuteEvent)
       const recipient = Address.fromHexString(
         "0x3021B1A8bB7d73d0afaA3537040EfAb630dB2958"
+      ).toHexString()
+      const balance = BigInt.fromString("1000000000000000000000")
+      const balancePerPeriod = [balance]
+      // Employing u64.MAX_VALUE as the unknown period value
+      const periods = [u64.MAX_VALUE].map<BigInt>((num) => BigInt.fromU64(num))
+      const periodsLength = periods.length
+
+      // Validate entity count
+      assert.entityCount("ClaimedPerPeriod", periodsLength)
+
+      for (let i: i32 = 0; i < periodsLength; i++) {
+        // Validate recipient
+        assert.fieldEquals(
+          "ClaimedPerPeriod",
+          concatIndex(id, i).toHexString(),
+          "recipient",
+          recipient
+        )
+
+        // Validate balance
+        assert.fieldEquals(
+          "ClaimedPerPeriod",
+          concatIndex(id, i).toHexString(),
+          "balance",
+          balancePerPeriod[i].toString()
+        )
+
+        // Validate period
+        assert.fieldEquals(
+          "ClaimedPerPeriod",
+          concatIndex(id, i).toHexString(),
+          "period",
+          periods[i].toString()
+        )
+      }
+    },
+    false // Expected success
+  )
+
+  test(
+    "Test ClaimedPerPeriod entity data on unknown function",
+    () => {
+      // Simulate unknown function transaction
+      const newUnknownEvent = CustomEvents.createUnknownEvent_0xa2d41b9e()
+      handleClaimed(newUnknownEvent)
+
+      // Configure claimPeriod() transaction parameters
+      const id = getEventId(newUnknownEvent)
+      const recipient = Address.fromHexString(
+        "0x718811e2d1170db844d0c5de6D276b299f2916a9"
       ).toHexString()
       const balance = BigInt.fromString("1000000000000000000000")
       const balancePerPeriod = [balance]
@@ -682,11 +782,49 @@ describe("Describe entity assertions", () => {
   )
 
   test(
-    "Test TotalClaimed entity data on execute() and other transactions",
+    "Test TotalClaimed entity data on execute()",
     () => {
       // Simulate execute() transaction
       const newExecuteEvent = CustomEvents.createExecuteEvent()
       handleClaimed(newExecuteEvent)
+
+      // Configure claimPeriod() transaction parameters
+      const balance = BigInt.fromString("1000000000000000000000")
+      // Employing u64.MAX_VALUE as the unknown period value
+      const periods = [u64.MAX_VALUE].map<BigInt>((num) => BigInt.fromU64(num))
+      const periodsLength = periods.length
+
+      // Validate entity count
+      assert.entityCount("TotalClaimed", 1)
+
+      // Validate countClaimed
+      assert.fieldEquals("TotalClaimed", one, "countClaimed", "1")
+
+      // Validate countPeriod
+      assert.fieldEquals(
+        "TotalClaimed",
+        one,
+        "countPeriod",
+        periodsLength.toString()
+      ) // In claimPeriod() transactions, always 1 period is fixed
+
+      // Validate totalBalance
+      assert.fieldEquals(
+        "TotalClaimed",
+        one,
+        "totalBalance",
+        balance.toString()
+      )
+    },
+    false // Expected success
+  )
+
+  test(
+    "Test TotalClaimed entity data on unknown function",
+    () => {
+      // Simulate unknown function transaction
+      const newUnknownEvent = CustomEvents.createUnknownEvent_0xa2d41b9e()
+      handleClaimed(newUnknownEvent)
 
       // Configure claimPeriod() transaction parameters
       const balance = BigInt.fromString("1000000000000000000000")
@@ -881,7 +1019,7 @@ describe("Describe entity assertions", () => {
   )
 
   test(
-    "Test TotalClaimedPerFrom entity data on execute() and other transactions",
+    "Test TotalClaimedPerFrom entity data on execute()",
     () => {
       // Simulate execute() transaction
       const newExecuteEvent = CustomEvents.createExecuteEvent()
@@ -1098,7 +1236,7 @@ describe("Describe entity assertions", () => {
   )
 
   test(
-    "Test TotalClaimedPerRecipient entity data on execute() and other transactions",
+    "Test TotalClaimedPerRecipient entity data on execute()",
     () => {
       // Simulate execute() transaction
       const newExecuteEvent = CustomEvents.createExecuteEvent()
@@ -1107,6 +1245,52 @@ describe("Describe entity assertions", () => {
       // Configure claimPeriod() transaction parameters
       const recipient = Address.fromHexString(
         "0x3021B1A8bB7d73d0afaA3537040EfAb630dB2958"
+      ).toHexString()
+      const balance = BigInt.fromString("1000000000000000000000")
+      // Employing u64.MAX_VALUE as the unknown period value
+      const periods = [u64.MAX_VALUE].map<BigInt>((num) => BigInt.fromU64(num))
+      const periodsLength = periods.length
+
+      // Validate entity count
+      assert.entityCount("TotalClaimedPerRecipient", 1)
+
+      // Validate recipient
+      assert.fieldEquals(
+        "TotalClaimedPerRecipient",
+        recipient,
+        "recipient",
+        recipient
+      ) // The recipient as this entity id
+
+      // Validate countPeriod
+      assert.fieldEquals(
+        "TotalClaimedPerRecipient",
+        recipient,
+        "countPeriod",
+        periodsLength.toString()
+      )
+
+      // Validate totalBalance
+      assert.fieldEquals(
+        "TotalClaimedPerRecipient",
+        recipient,
+        "totalBalance",
+        balance.toString()
+      )
+    },
+    false // Expected success
+  )
+
+  test(
+    "Test TotalClaimedPerRecipient entity data on unknown function",
+    () => {
+      // Simulate unknown function transaction
+      const newUnknownEvent = CustomEvents.createUnknownEvent_0xa2d41b9e()
+      handleClaimed(newUnknownEvent)
+
+      // Configure claimPeriod() transaction parameters
+      const recipient = Address.fromHexString(
+        "0x718811e2d1170db844d0c5de6D276b299f2916a9"
       ).toHexString()
       const balance = BigInt.fromString("1000000000000000000000")
       // Employing u64.MAX_VALUE as the unknown period value
