@@ -1,10 +1,42 @@
-type Claimed @entity(immutable: true) {
+# The MethodName enum stores method (function) names for known
+# or unknown transactions, triggering the Claimed event.
+enum MethodName {
+  claimPeriod
+  claimPeriods
+  execute
+  unknown
+}
+
+# ClaimedPerPeriod entity stores recipient and balance data
+# per period and recipient address.
+type ClaimedPerPeriod @entity(immutable: true) {
   id: Bytes!
+  from: Bytes! # address
   recipient: Bytes! # address
+  period: BigInt! # using u64.MAX_VALUE as null
   balance: BigInt! # uint256
   blockNumber: BigInt!
   blockTimestamp: BigInt!
   transactionHash: Bytes!
+  transactionMethodId: Bytes!
+  transactionMethodName: MethodName!
+}
+
+# TotalClaimed entity stores Claimed event occurrences, period count,
+# and cumulative balance claimed.
+type TotalClaimed @entity(immutable: false) {
+  id: Bytes! # is always Bytes.fromI32(1)
+  countClaimed: BigInt! # uint256
+  countPeriod: BigInt! # uint256
+  totalBalance: BigInt! # uint256
+}
+
+# TotalClaimedPerPeriod entity stores claimed and total balance
+# per 'period'.
+type TotalClaimedPerPeriod @entity(immutable: false) {
+  id: Bytes! # equals the Bytes.fromByteArray(Bytes.fromBigInt(BigInt.fromString(period)))
+  period: BigInt! # uint256
+  totalBalance: BigInt! # uint256
 }
 
 type OwnerChanged @entity(immutable: true) {
