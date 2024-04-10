@@ -11,13 +11,11 @@ import {
   OwnerNominated as OwnerNominatedEvent
 } from "../generated/MerkleRedeem/MerkleRedeem"
 import {
-  Claimed as ClaimedEntity,
   ClaimedPerPeriod as ClaimedPerPeriodEntity,
   OwnerChanged as OwnerChangedEntity,
   OwnerNominated as OwnerNominatedEntity,
   TotalClaimed as TotalClaimedEntity,
-  TotalClaimedPerFrom as TotalClaimedPerFromEntity,
-  TotalClaimedPerRecipient as TotalClaimedPerRecipientEntity
+  TotalClaimedPerPeriod as TotalClaimedPerPeriodEntity
 } from "../generated/schema"
 
 // In The Graph, setting string in an Enumeration is still seen as i32 type by the compiler.
@@ -124,25 +122,6 @@ export function handleClaimed(event: ClaimedEvent): void {
   const method = getMethod(methodId)
   const methodName = getMethodName(methodId)
 
-  // -----------------------------
-  // --- Create Claimed entity ---
-  // -----------------------------
-
-  // Claimed entity stores recipient and balance data per Claimed event,
-  // with 'periods' and 'balancePerPeriod' stored in arrays,
-  // using u64.MAX_VALUE if a period is unknown.
-  const claimedEntity = new ClaimedEntity(id)
-  claimedEntity.from = from
-  claimedEntity.recipient = recipient
-  claimedEntity.balance = balance
-  claimedEntity.blockNumber = blockNumber
-  claimedEntity.blockTimestamp = timestamp
-  claimedEntity.transactionHash = transactionHash
-  claimedEntity.transactionMethodId = methodId
-  claimedEntity.transactionMethodName = methodName
-  claimedEntity.periods = []
-  claimedEntity.balancePerPeriod = []
-
   // As the AssemblyScript compiler struggles with null values in arrays, non-null arrays are employed here, with BigInt.fromU64(u64.MAX_VALUE) serving to signify the absence of a period.
   const periods: Array<BigInt> = [] // Array<BigInt | null> = []
   const balances: Array<BigInt> = []
@@ -178,28 +157,18 @@ export function handleClaimed(event: ClaimedEvent): void {
       break
     }
     case Method.execute: {
-      claimedEntity.transactionMethodName = MethodName.execute
       // Employing u64.MAX_VALUE as the unknown period value.
       periods.push(BigInt.fromU64(u64.MAX_VALUE))
       balances.push(balance)
       break
     }
     default: {
-      claimedEntity.transactionMethodName = MethodName.unknown
       // Employing u64.MAX_VALUE as the unknown period value.
       periods.push(BigInt.fromU64(u64.MAX_VALUE))
       balances.push(balance)
       break
     }
   }
-  const periodsLength = periods.length
-
-  claimedEntity.periodsLength = BigInt.fromI32(periodsLength)
-  claimedEntity.periods = periods
-  claimedEntity.balancePerPeriod = balances
-
-  // Save the entity to the store
-  claimedEntity.save()
 
   // ----------------------------------
   // --- Update TotalClaimed entity ---
@@ -218,7 +187,7 @@ export function handleClaimed(event: ClaimedEvent): void {
   totalClaimedEntity.countClaimed =
     totalClaimedEntity.countClaimed.plus(oneBigInt)
   totalClaimedEntity.countPeriod = totalClaimedEntity.countPeriod.plus(
-    BigInt.fromI32(periodsLength)
+    BigInt.fromI32(periods.length)
   )
   totalClaimedEntity.totalBalance =
     totalClaimedEntity.totalBalance.plus(balance)
@@ -226,59 +195,13 @@ export function handleClaimed(event: ClaimedEvent): void {
   // Save the entity to the store
   totalClaimedEntity.save()
 
-  // -----------------------------------------
-  // --- Update TotalClaimedPerFrom entity ---
-  // -----------------------------------------
-
-  // TotalClaimedPerFrom entity stores claimed period count
-  // and total balance per 'from' address.
-  let totalClaimedPerFromEntity = TotalClaimedPerFromEntity.load(from)
-  if (totalClaimedPerFromEntity == null) {
-    totalClaimedPerFromEntity = new TotalClaimedPerFromEntity(from)
-    totalClaimedPerFromEntity.from = from
-    totalClaimedPerFromEntity.countPeriod = zero
-    totalClaimedPerFromEntity.totalBalance = zero
-  }
-  totalClaimedPerFromEntity.totalBalance =
-    totalClaimedPerFromEntity.totalBalance.plus(balance)
-  totalClaimedPerFromEntity.countPeriod =
-    totalClaimedPerFromEntity.countPeriod.plus(BigInt.fromI32(periodsLength))
-
-  // Save the entity to the store
-  totalClaimedPerFromEntity.save()
-
-  // ----------------------------------------------
-  // --- Update TotalClaimedPerRecipient entity ---
-  // ----------------------------------------------
-
-  // TotalClaimedPerRecipient entity stores claimed period count
-  // and total balance per 'recipient' address.
-  let totalClaimedPerRecipientEntity =
-    TotalClaimedPerRecipientEntity.load(recipient)
-  if (totalClaimedPerRecipientEntity == null) {
-    totalClaimedPerRecipientEntity = new TotalClaimedPerRecipientEntity(
-      recipient
-    )
-    totalClaimedPerRecipientEntity.recipient = recipient
-    totalClaimedPerRecipientEntity.countPeriod = zero
-    totalClaimedPerRecipientEntity.totalBalance = zero
-  }
-  totalClaimedPerRecipientEntity.totalBalance =
-    totalClaimedPerRecipientEntity.totalBalance.plus(balance)
-  totalClaimedPerRecipientEntity.countPeriod =
-    totalClaimedPerRecipientEntity.countPeriod.plus(
-      BigInt.fromI32(periodsLength)
-    )
-
-  // Save the entity to the store
-  totalClaimedPerRecipientEntity.save()
-
-  // --------------------------------------
-  // --- Create ClaimedPerPeriod entity ---
-  // --------------------------------------
-
-  for (let i: i32 = 0; i < periodsLength; i++) {
+  for (let i: i32 = 0; i < periods.length; i++) {
     const idWithIndex = concatIndex(id, i)
+    const periodAsId = Bytes.fromByteArray(Bytes.fromBigInt(periods[i]))
+
+    // --------------------------------------
+    // --- Create ClaimedPerPeriod entity ---
+    // --------------------------------------
 
     // ClaimedPerPeriod entity stores recipient and balance data
     // per period and recipient address.
@@ -296,10 +219,22 @@ export function handleClaimed(event: ClaimedEvent): void {
     // Save the entity to the store
     claimedPerPeriodEntity.save()
 
-    // log.debug("[debug] period: {}, balance: {}", [
-    //   periods[i] ? periods[i]!.toString() : "null",
-    //   balances[i].toString()
-    // ])
+    // ----------------------------------------------
+    // --- Update totalClaimedPerPeriodEntity entity ---
+    // ----------------------------------------------
+
+    let totalClaimedPerPeriodEntity =
+      TotalClaimedPerPeriodEntity.load(periodAsId)
+    if (totalClaimedPerPeriodEntity == null) {
+      totalClaimedPerPeriodEntity = new TotalClaimedPerPeriodEntity(periodAsId)
+      totalClaimedPerPeriodEntity.period = periods[i]
+      totalClaimedPerPeriodEntity.totalBalance = zero
+    }
+    totalClaimedPerPeriodEntity.totalBalance =
+      totalClaimedPerPeriodEntity.totalBalance.plus(balances[i])
+
+    // Save the entity to the store
+    totalClaimedPerPeriodEntity.save()
   }
 
   log.debug(
@@ -313,7 +248,7 @@ export function handleClaimed(event: ClaimedEvent): void {
       from.toHexString(),
       recipient.toHexString(),
       balance.toString(),
-      periodsLength.toString(),
+      periods.length.toString(),
       periods.toString(),
       balances.toString()
     ]
